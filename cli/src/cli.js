@@ -7,6 +7,7 @@ let username
 let server
 let host
 let port
+let firstSuccessfulCommand = false
 
 cli
   .delimiter(cli.chalk['yellow']('ftd~$'))
@@ -48,12 +49,16 @@ cli
     const [ command, ...rest ] = words(input.replace(/@/g, "ATSIGN"))
     const contents = rest.join(' ')
     if (command === 'disconnect') {
+      firstSuccessfulCommand = true
       server.end(new Message({ username, command }).toJSON() + '\n')
     } else if (command === 'echo') {
+      firstSuccessfulCommand = true
       server.write(new Message({ username, command, contents }).toJSON() + '\n')
     } else if (command === 'broadcast') {
+      firstSuccessfulCommand = true
       server.write(new Message({ username, command, contents }).toJSON() + '\n')
     } else if (command === 'users') {
+      firstSuccessfulCommand = true
       server.write(new Message({ username, command, contents }).toJSON() + '\n')
     } else if (command === 'lastcommand') {
       server.write(new Message({ username, command, contents }).toJSON() + '\n')
@@ -71,7 +76,8 @@ cli
       const moddedMsg = new Message({ username, command: newCommand, contents})
         server.write(moddedMsg.toJSON() + '\n')
     } else {
-      //this.log("trying to use lastcommand")
+
+      if (firstSuccessfulCommand === false) this.log("Please choose a valid command")
       server.write(new Message({ username, command, contents }).toJSON() + '\n')
       //callback()
     }
