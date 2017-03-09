@@ -73,12 +73,13 @@ public class MessageCenter implements Runnable {
 		{
 			for (Message msg : messages)
 			{
-				/*if (cl.thisUsername != "" && cl.hasBeenAnnounced == false)
+				if (cl.hasBeenAnnounced == false && cl.thisUsername != "")
 				{
 					Message msgNew = new Message();
-					msgNew.setUsername("SERVER SAYS "); msgNew.setContents(cl.thisUsername + " has arrived!");
+					msgNew.setUsername(cl.thisUsername); msgNew.setContents("has connected.");
 					cl.hasBeenAnnounced = true;
-				}*/
+					passMessageToMessageCenter(msgNew);
+				}
 				
 				cl.addMessage(msg); //may need to create new message, copy old, send
 			}

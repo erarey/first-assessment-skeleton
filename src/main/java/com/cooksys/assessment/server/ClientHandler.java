@@ -50,6 +50,15 @@ public class ClientHandler implements Runnable {
 			PrintWriter writer = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
 
 			while (!socket.isClosed()) {
+				
+				if (hasBeenAnnounced == false && thisUsername != "") {
+					Message msgNew = new Message();
+					msgNew.setUsername(thisUsername);
+					msgNew.setContents(thisUsername + " has connected.");
+					hasBeenAnnounced = true;
+					messageCenter.passMessageToMessageCenter(msgNew);
+				}
+				
 				if (reader.ready()) {
 					String raw = reader.readLine();
 					Message message = mapper.readValue(raw, Message.class);
@@ -58,6 +67,7 @@ public class ClientHandler implements Runnable {
 					case "connect":
 						log.info("user <{}> connected", message.getUsername());
 						thisUsername = message.getUsername();
+						System.out.println(thisUsername);
 						break;
 					case "disconnect":
 						log.info("user <{}> disconnected", message.getUsername());
@@ -101,14 +111,15 @@ public class ClientHandler implements Runnable {
 	}
 
 	public synchronized void addMessage(Message message) {
-		log.debug("adding a message at client handler");
+		//log.debug("adding a message at client handler");
 		unreadMessages.add(message);
-		log.debug("unreadMessages: " + (new Integer(unreadMessages.size()).toString()));
+		//log.debug("unreadMessages: " + (new Integer(unreadMessages.size()).toString()));
 
 	}
 
 	public synchronized void displayMessages(PrintWriter writer, ObjectMapper mapper) {
-		//log.debug("unreadMessages B: " + (new Integer(unreadMessages.size()).toString()));
+		// log.debug("unreadMessages B: " + (new
+		// Integer(unreadMessages.size()).toString()));
 
 		while (!unreadMessages.isEmpty()) {
 			log.debug("trying to send from within clienthandler");
