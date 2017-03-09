@@ -95,6 +95,11 @@ public class ClientHandler implements Runnable {
 							unsentMessages.add(message);
 						}
 						break;
+					case "users":
+						log.info("user <{}> requested the user list");
+						String response6 = mapper.writeValueAsString(messageCenter.userlistRequest(this));
+						writer.write(response6);
+						writer.flush();
 					}
 
 					if (message.getCommand().startsWith("ATSIGN")) {
@@ -129,7 +134,7 @@ public class ClientHandler implements Runnable {
 					Message msgNew = new Message();
 					msgNew.setUsername(thisUsername);
 					msgNew.setContents(thisUsername + " has disconnected.");
-					msgNew.setCommand("broadcast");
+					msgNew.setCommand("disconnect");
 					msgNew.setTimestamp(new Date().toString());
 					messageCenter.passMessageToMessageCenter(msgNew);
 					this.socket.close();
@@ -154,15 +159,15 @@ public class ClientHandler implements Runnable {
 		// Integer(unreadMessages.size()).toString()));
 
 		while (!unreadMessages.isEmpty()) {
-			log.debug("trying to send from within clienthandler");
+			//log.debug("trying to send from within clienthandler");
 			String response3;
 			try {
 				Message msg = null;
 				// if (unreadMessages.peek() != null) {
 				synchronized (unreadMessages) {
-					System.out.println("POLLING");
+					//System.out.println("POLLING");
 					msg = unreadMessages.poll();
-					System.out.println("POLLED");
+					//System.out.println("POLLED");
 					if (msg == null) System.out.println("null!");
 				}
 
@@ -191,6 +196,11 @@ public class ClientHandler implements Runnable {
 		{
 			com = "all";
 		}
+		else if (com.equals("users"))
+		{
+			//this should already be formatted by MessageCenter
+			return msg;
+		}
 		else if (com.equals("echo"))
 		{
 			com = "echo";
@@ -198,6 +208,7 @@ public class ClientHandler implements Runnable {
 		else if (com.startsWith("ATSIGN"))
 		{
 			com = "whisper";
+			msg.setCommand("whisper"); //to make it easier to color is Javascript
 		}
 		else if (com.equals("connect") || com.equals("disconnect"))
 		{
