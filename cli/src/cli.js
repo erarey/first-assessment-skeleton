@@ -32,6 +32,13 @@ cli
       server.write(new Message({ username, command, contents }).toJSON() + '\n')
     } else if (command === 'broadcast') {
       server.write(new Message({ username, command, contents }).toJSON() + '\n')
+    } else if (input.startsWith('@')) {
+      let command2 = input.substring(1)
+      if (command2 !== undefined) {
+        command2 = "**" + command2
+        //this.log(command2)
+        server.write(new Message({ username, command, contents }).toJSON() + '\n')
+      }
     } else {
       this.log(`Command <${command}> was not recognized`)
     }

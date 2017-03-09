@@ -51,6 +51,7 @@ public class Server implements Runnable {
 		try {
 			ss = new ServerSocket(port);
 			while (true) {
+				Thread.sleep(500);
 				Socket socket = ss.accept();
 				ClientHandler handler = new ClientHandler(socket, messageCenter);
 				clientsSyncd.add(handler);
@@ -59,6 +60,8 @@ public class Server implements Runnable {
 			}
 		} catch (IOException e) {
 			log.error("Something went wrong :/", e);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
 		}
 	}
 }

@@ -1,5 +1,7 @@
 package com.cooksys.assessment.model;
 
+import java.util.Date;
+
 public class Message {
 
 	private String username;

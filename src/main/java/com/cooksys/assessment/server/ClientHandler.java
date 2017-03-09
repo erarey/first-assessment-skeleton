@@ -6,7 +6,9 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.text.DateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -46,7 +48,7 @@ public class ClientHandler implements Runnable {
 
 	public void run() {
 		try {
-
+			Thread.sleep(500);
 			ObjectMapper mapper = new ObjectMapper();
 			BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 			PrintWriter writer = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
@@ -58,6 +60,7 @@ public class ClientHandler implements Runnable {
 					msgNew.setUsername(thisUsername);
 					msgNew.setContents(thisUsername + " has connected.");
 					hasBeenAnnounced = true;
+					msgNew.setTimestamp(new Date().toString());
 					messageCenter.passMessageToMessageCenter(msgNew);
 				}
 				
@@ -79,6 +82,7 @@ public class ClientHandler implements Runnable {
 						break;
 					case "echo":
 						log.info("user <{}> echoed message <{}>", message.getUsername(), message.getContents());
+						message.setTimestamp(new Date().toString());
 						String response = mapper.writeValueAsString(message);
 						writer.write(response);
 						writer.flush();
@@ -89,6 +93,7 @@ public class ClientHandler implements Runnable {
 						// mapper.writeValueAsString(message);
 						// writer.write(response2);
 						// writer.flush();
+						message.setTimestamp(new Date().toString());
 						unsentMessages.add(message);
 						break;
 					case "whisper":
@@ -97,9 +102,25 @@ public class ClientHandler implements Runnable {
 						// mapper.writeValueAsString(message);
 						// writer.write(response2);
 						// writer.flush();
+						message.setTimestamp(new Date().toString());
 						unsentMessages.add(message);
 						break;
 					}
+					
+					if (message.getCommand().startsWith("**"))
+					{
+						String userToMessage = message.getCommand().substring(2);
+						if (userToMessage == "")
+						{
+							Message msg = new Message();
+							msg.setUsername(thisUsername);
+							msg.setCommand("echo"); 
+							msg.setContents("You must specify a user to message"); 
+							msg.setTimestamp(new Date().toString());
+							String response5 = mapper.writeValueAsString()
+						}
+					}
+					
 				} else {
 					while (!unsentMessages.isEmpty()) {
 						messageCenter.passMessageToMessageCenter(unsentMessages.remove());
@@ -113,12 +134,13 @@ public class ClientHandler implements Runnable {
 					Message msgNew = new Message();
 					msgNew.setUsername(thisUsername);
 					msgNew.setContents(thisUsername + " has disconnected.");
+					msgNew.setTimestamp(new Date().toString());
 					messageCenter.passMessageToMessageCenter(msgNew);
 					this.socket.close();
 				}
 			}
 
-		} catch (IOException e) {
+		} catch (IOException | InterruptedException e) {
 			log.error("Something went wrong :/", e);
 		}
 	}
