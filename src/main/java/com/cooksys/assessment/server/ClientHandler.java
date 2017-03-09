@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
@@ -30,10 +31,10 @@ public class ClientHandler implements Runnable {
 	boolean alive = true;
 
 	boolean prepareToDisconnect = false;
-	
-	Queue<Message> unreadMessages = new LinkedList<Message>();
 
-	Queue<Message> unsentMessages = new LinkedList<Message>();
+	Queue<Message> unreadMessages = new ConcurrentLinkedQueue<Message>();
+
+	Queue<Message> unsentMessages = new ConcurrentLinkedQueue<Message>();
 
 	String thisUsername = "";
 
@@ -54,22 +55,22 @@ public class ClientHandler implements Runnable {
 			PrintWriter writer = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
 
 			while (!socket.isClosed()) {
-				
+
 				if (hasBeenAnnounced == false && thisUsername != "") {
 					Message msgNew = new Message();
 					msgNew.setUsername(thisUsername);
 					msgNew.setContents(thisUsername + " has connected.");
+					msgNew.setCommand("connect");
 					hasBeenAnnounced = true;
 					msgNew.setTimestamp(new Date().toString());
 					messageCenter.passMessageToMessageCenter(msgNew);
 				}
-				
-				
-				
+
 				if (reader.ready()) {
 					String raw = reader.readLine();
 					Message message = mapper.readValue(raw, Message.class);
-
+					
+					System.out.println("COMMAND COMING IN:" + message.getCommand());
 					switch (message.getCommand()) {
 					case "connect":
 						log.info("user <{}> connected", message.getUsername());
@@ -89,51 +90,46 @@ public class ClientHandler implements Runnable {
 						break;
 					case "broadcast":
 						log.info("user <{}> broadcasted message <{}>", message.getUsername(), message.getContents());
-						// String response2 =
-						// mapper.writeValueAsString(message);
-						// writer.write(response2);
-						// writer.flush();
 						message.setTimestamp(new Date().toString());
-						unsentMessages.add(message);
-						break;
-					case "whisper":
-						log.info("user <{}> whispered <{}>", message.getUsername(), message.getContents());
-						// String response2 =
-						// mapper.writeValueAsString(message);
-						// writer.write(response2);
-						// writer.flush();
-						message.setTimestamp(new Date().toString());
-						unsentMessages.add(message);
+						synchronized (unsentMessages) {
+							unsentMessages.add(message);
+						}
 						break;
 					}
-					
-					if (message.getCommand().startsWith("**"))
-					{
-						String userToMessage = message.getCommand().substring(2);
-						if (userToMessage == "")
-						{
-							Message msg = new Message();
-							msg.setUsername(thisUsername);
-							msg.setCommand("echo"); 
-							msg.setContents("You must specify a user to message"); 
-							msg.setTimestamp(new Date().toString());
-							String response5 = mapper.writeValueAsString()
+
+					if (message.getCommand().startsWith("ATSIGN")) {
+						System.out.println("a private message was created");
+						message.setTimestamp(new Date().toString());
+
+						synchronized (unsentMessages) {
+							unsentMessages.add(message);
 						}
 					}
-					
+
 				} else {
 					while (!unsentMessages.isEmpty()) {
-						messageCenter.passMessageToMessageCenter(unsentMessages.remove());
+						Message msg = null;
+
+						synchronized (unsentMessages) {
+							msg = unsentMessages.poll();
+						}
+
+						if (msg != null) {
+							if (msg.getCommand().startsWith("ATSIGN")) {
+								System.out.println("passing private message to MessageCenter");
+							}
+							messageCenter.passMessageToMessageCenter(msg);
+						}
 					}
 
 					displayMessages(writer, mapper);
 				}
-				
-				if (prepareToDisconnect == true)
-				{
+
+				if (prepareToDisconnect == true) {
 					Message msgNew = new Message();
 					msgNew.setUsername(thisUsername);
 					msgNew.setContents(thisUsername + " has disconnected.");
+					msgNew.setCommand("broadcast");
 					msgNew.setTimestamp(new Date().toString());
 					messageCenter.passMessageToMessageCenter(msgNew);
 					this.socket.close();
@@ -146,9 +142,10 @@ public class ClientHandler implements Runnable {
 	}
 
 	public synchronized void addMessage(Message message) {
-		//log.debug("adding a message at client handler");
+		// log.debug("adding a message at client handler");
 		unreadMessages.add(message);
-		//log.debug("unreadMessages: " + (new Integer(unreadMessages.size()).toString()));
+		// log.debug("unreadMessages: " + (new
+		// Integer(unreadMessages.size()).toString()));
 
 	}
 
@@ -160,14 +157,67 @@ public class ClientHandler implements Runnable {
 			log.debug("trying to send from within clienthandler");
 			String response3;
 			try {
-				response3 = mapper.writeValueAsString(unreadMessages.remove());
-				writer.write(response3);
-				writer.flush();
+				Message msg = null;
+				// if (unreadMessages.peek() != null) {
+				synchronized (unreadMessages) {
+					System.out.println("POLLING");
+					msg = unreadMessages.poll();
+					System.out.println("POLLED");
+					if (msg == null) System.out.println("null!");
+				}
+
+				if (msg != null) {
+					//if (msg.getCommand().startsWith("**")) {
+						//System.out.println("Found an unread private message");
+					//}
+					//System.out.println("COMMAND WAS " + msg.getCommand());
+					response3 = mapper.writeValueAsString(formatMessage(msg));
+					writer.write(response3);
+					writer.flush();
+				}
+				// }
 			} catch (JsonProcessingException e) {
 				e.printStackTrace();
 			}
 
 		}
 	}
-
+	
+	Message formatMessage(Message msg)
+	{
+		String com = msg.getCommand();
+		
+		if (com.equals("broadcast"))
+		{
+			com = "all";
+		}
+		else if (com.equals("echo"))
+		{
+			com = "echo";
+		}
+		else if (com.startsWith("ATSIGN"))
+		{
+			com = "whisper";
+		}
+		else if (com.equals("connect") || com.equals("disconnect"))
+		{
+			msg.setContents((msg.getTimestamp() +":" + " <" + msg.getUsername() + ">" + " has " + com + "ed"));
+			return msg;
+		}
+		else
+		{
+			msg.setContents("A known command is required. Type disconnect to leave.");
+			return msg;
+			
+		}
+		
+		if (com.equals("whisper")) msg.setContents(msg.getContents().substring(msg.getContents().indexOf(" ")+1));
+		
+		msg.setContents((msg.getTimestamp() + " <" + msg.getUsername() + "> " 
+				+ "(" + com +"):" + msg.getContents()));
+		
+		 
+		return msg;
+		
+	}
 }

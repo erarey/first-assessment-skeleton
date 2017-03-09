@@ -5,14 +5,19 @@ import { Message } from './Message'
 export const cli = vorpal()
 let username
 let server
+let host
+let port
+
 cli
   .delimiter(cli.chalk['yellow']('ftd~$'))
 cli
-  .mode('connect <username>')
+  .mode('connect <username> <host> <port>')
   .delimiter(cli.chalk['green']('connected>'))
   .init(function (args, callback) {
     username = args.username
-    server = connect({ host: 'localhost', port: 8080 }, () => {
+    host = args.host || 'localhost'
+    port = args.port || '8080'
+    server = connect({ host, port }, () => {
       server.write(new Message({ username, command: 'connect' }).toJSON() + '\n')
       callback()
     })
@@ -24,7 +29,7 @@ cli
     })
   })
   .action(function (input, callback) {
-    const [ command, ...rest ] = words(input)
+    const [ command, ...rest ] = words(input.replace(/@/g, "ATSIGN"))
     const contents = rest.join(' ')
     if (command === 'disconnect') {
       server.end(new Message({ username, command }).toJSON() + '\n')
@@ -32,13 +37,19 @@ cli
       server.write(new Message({ username, command, contents }).toJSON() + '\n')
     } else if (command === 'broadcast') {
       server.write(new Message({ username, command, contents }).toJSON() + '\n')
-    } else if (input.startsWith('@')) {
-      let command2 = input.substring(1)
-      if (command2 !== undefined) {
-        command2 = "**" + command2
+    //} else if (input.startsWith('@') && !input.substring('1').startsWith('@')) {
+      //let command2 = input.substring(1)
+      //if (command2 !== undefined) {
+        //command2 = "**" + command2
         //this.log(command2)
-        server.write(new Message({ username, command, contents }).toJSON() + '\n')
-      }
+        //server.write(new Message({ username, command, contents }).toJSON() + '\n')
+      //}
+    } else if (input.startsWith('@') || input.startsWith("ATSIGN")) {
+      this.log({ username, command, contents })
+      const newCommand = input.replace(/@/g, "ATSIGN").split(" ")[0]
+      this.log("newCommand: " + newCommand)
+      const moddedMsg = new Message({ username, command: newCommand, contents})
+        server.write(moddedMsg.toJSON() + '\n')
     } else {
       this.log(`Command <${command}> was not recognized`)
     }

@@ -42,4 +42,13 @@ public class Message {
 	{
 		return timestamp;
 	}
+	
+	public Message(){}
+	
+	public Message(Message old){
+		this.setCommand(old.getCommand());
+		this.setTimestamp(old.getTimestamp());
+		this.setUsername(old.getUsername());
+		this.setContents(old.getContents());
+	}
 }
