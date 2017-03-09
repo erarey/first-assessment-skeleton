@@ -50,6 +50,9 @@ public class ClientHandler implements Runnable {
 	public void run() {
 		try {
 			Thread.sleep(500);
+			
+			String previousCommand = "connect";
+			
 			ObjectMapper mapper = new ObjectMapper();
 			BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 			PrintWriter writer = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
@@ -70,12 +73,45 @@ public class ClientHandler implements Runnable {
 					String raw = reader.readLine();
 					Message message = mapper.readValue(raw, Message.class);
 					
-					System.out.println("COMMAND COMING IN:" + message.getCommand());
+					System.out.println("Received: " + message.getCommand());
+					if (message.getCommand().equals("lastcommand"))
+					{
+						System.out.println("lastcommand attempt");
+						if (previousCommand.equals("connect") || previousCommand.equals("lastcommand"))
+						{
+							System.out.println("no prev command found");
+							log.info("user <{}> did not enter a command", message.getUsername());
+							message.setTimestamp(new Date().toString());
+							message.setContents("Please enter a recognized command");
+							message.setCommand("lastcommand");
+							message.setTimestamp(new Date().toString());
+							String response = mapper.writeValueAsString(message);
+							writer.write(response);
+							writer.flush();
+							break;
+						}
+						else
+						{
+							System.out.println("attempting to reuse last command " + previousCommand);
+							String addContents = message.getCommand();
+							message.setContents("" + addContents + " " + message.getContents());
+							message.setCommand(previousCommand);
+							System.out.println("new contents: " + message.getContents());
+						}
+					}
+					else
+					{
+						System.out.println("previousCommand " + message.getCommand());
+						
+						
+					}
+					//System.out.println("COMMAND COMING IN:" + message.getCommand());
 					switch (message.getCommand()) {
+					
 					case "connect":
 						log.info("user <{}> connected", message.getUsername());
 						thisUsername = message.getUsername();
-						System.out.println(thisUsername);
+						//System.out.println(thisUsername);
 						break;
 					case "disconnect":
 						log.info("user <{}> disconnected", message.getUsername());
@@ -100,8 +136,21 @@ public class ClientHandler implements Runnable {
 						String response6 = mapper.writeValueAsString(messageCenter.userlistRequest(this));
 						writer.write(response6);
 						writer.flush();
+					
+					default:
+						String addContents = message.getCommand();
+						message.setContents("" + addContents + " " + message.getContents());
+						message.setCommand(previousCommand);
+						message.setTimestamp(new Date().toString());
+						synchronized (unsentMessages)
+						{
+							unsentMessages.add(message);
+						}
+						break;
 					}
-
+					
+					previousCommand = message.getCommand();
+					
 					if (message.getCommand().startsWith("ATSIGN")) {
 						System.out.println("a private message was created");
 						message.setTimestamp(new Date().toString());
@@ -115,6 +164,7 @@ public class ClientHandler implements Runnable {
 					while (!unsentMessages.isEmpty()) {
 						Message msg = null;
 
+						//System.out.println("processing unsent messages " + unsentMessages.size());
 						synchronized (unsentMessages) {
 							msg = unsentMessages.poll();
 						}

@@ -34,7 +34,10 @@ cli
       else if (preString.command === 'connect' || preString.command === 'disconnect')
         postColor = cli.chalk['yellow'](Message.fromJSON(buffer).toString())
       else if (preString.command === 'users')
-        postColor = cli.chalk['inverse'](Message.fromJSON(buffer).toString())
+        postColor = cli.chalk['bgGreen'](Message.fromJSON(buffer).toString())
+      else if (preString.command === 'lastcommand')
+        postColor = cli.chalk['bgBlue'](Message.fromJSON(buffer).toString())
+
       this.log(postColor)
     })
     server.on('end', () => {
@@ -52,6 +55,8 @@ cli
       server.write(new Message({ username, command, contents }).toJSON() + '\n')
     } else if (command === 'users') {
       server.write(new Message({ username, command, contents }).toJSON() + '\n')
+    } else if (command === 'lastcommand') {
+      server.write(new Message({ username, command, contents }).toJSON() + '\n')
     //} else if (input.startsWith('@') && !input.substring('1').startsWith('@')) {
       //let command2 = input.substring(1)
       //if (command2 !== undefined) {
@@ -66,7 +71,9 @@ cli
       const moddedMsg = new Message({ username, command: newCommand, contents})
         server.write(moddedMsg.toJSON() + '\n')
     } else {
-
+      //this.log("trying to use lastcommand")
+      server.write(new Message({ username, command, contents }).toJSON() + '\n')
+      //callback()
     }
     callback()
   })
