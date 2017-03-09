@@ -27,6 +27,8 @@ public class ClientHandler implements Runnable {
 
 	boolean alive = true;
 
+	boolean prepareToDisconnect = false;
+	
 	Queue<Message> unreadMessages = new LinkedList<Message>();
 
 	Queue<Message> unsentMessages = new LinkedList<Message>();
@@ -59,6 +61,8 @@ public class ClientHandler implements Runnable {
 					messageCenter.passMessageToMessageCenter(msgNew);
 				}
 				
+				
+				
 				if (reader.ready()) {
 					String raw = reader.readLine();
 					Message message = mapper.readValue(raw, Message.class);
@@ -71,7 +75,7 @@ public class ClientHandler implements Runnable {
 						break;
 					case "disconnect":
 						log.info("user <{}> disconnected", message.getUsername());
-						this.socket.close();
+						prepareToDisconnect = true;
 						break;
 					case "echo":
 						log.info("user <{}> echoed message <{}>", message.getUsername(), message.getContents());
@@ -102,6 +106,15 @@ public class ClientHandler implements Runnable {
 					}
 
 					displayMessages(writer, mapper);
+				}
+				
+				if (prepareToDisconnect == true)
+				{
+					Message msgNew = new Message();
+					msgNew.setUsername(thisUsername);
+					msgNew.setContents(thisUsername + " has disconnected.");
+					messageCenter.passMessageToMessageCenter(msgNew);
+					this.socket.close();
 				}
 			}
 
