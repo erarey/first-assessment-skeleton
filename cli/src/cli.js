@@ -24,21 +24,20 @@ cli
     })
     server.on('data', (buffer) => {
       const preString = Message.fromJSON(buffer)
-      //this.log(preString.command)
-      let postColor = ""
-      if (preString.command === 'echo')
+      let postColor = ''
+      if (preString.command === 'echo') {
         postColor = cli.chalk['green'](Message.fromJSON(buffer).toString())
-      else if (preString.command === 'broadcast')
+      } else if (preString.command === 'broadcast') {
         postColor = cli.chalk['red'](Message.fromJSON(buffer).toString())
-      else if (preString.command === 'whisper' || preString.command.toString().startsWith("ATSIGN"))
+      } else if (preString.command === 'whisper' || preString.command.toString().startsWith('ATSIGN')) {
         postColor = cli.chalk['blue'](Message.fromJSON(buffer).toString())
-      else if (preString.command === 'connect' || preString.command === 'disconnect')
+      } else if (preString.command === 'connect' || preString.command === 'disconnect') {
         postColor = cli.chalk['yellow'](Message.fromJSON(buffer).toString())
-      else if (preString.command === 'users')
+      } else if (preString.command === 'users') {
         postColor = cli.chalk['bgGreen'](Message.fromJSON(buffer).toString())
-      else if (preString.command === 'lastcommand')
+      } else if (preString.command === 'lastcommand') {
         postColor = cli.chalk['bgBlue'](Message.fromJSON(buffer).toString())
-
+      }
       this.log(postColor)
     })
     server.on('end', () => {
@@ -46,7 +45,7 @@ cli
     })
   })
   .action(function (input, callback) {
-    const [ command, ...rest ] = words(input.replace(/@/g, "ATSIGN"))
+    const [ command, ...rest ] = words(input.replace(/@/g, 'ATSIGN'))
     const contents = rest.join(' ')
     if (command === 'disconnect') {
       firstSuccessfulCommand = true
@@ -62,24 +61,15 @@ cli
       server.write(new Message({ username, command, contents }).toJSON() + '\n')
     } else if (command === 'lastcommand') {
       server.write(new Message({ username, command, contents }).toJSON() + '\n')
-    //} else if (input.startsWith('@') && !input.substring('1').startsWith('@')) {
-      //let command2 = input.substring(1)
-      //if (command2 !== undefined) {
-        //command2 = "**" + command2
-        //this.log(command2)
-        //server.write(new Message({ username, command, contents }).toJSON() + '\n')
-      //}
-    } else if (input.startsWith('@') || input.startsWith("ATSIGN")) {
-      //this.log({ username, command, contents })
-      const newCommand = input.replace(/@/g, "ATSIGN").split(" ")[0]
-      //this.log("newCommand: " + newCommand)
-      const moddedMsg = new Message({ username, command: newCommand, contents})
-        server.write(moddedMsg.toJSON() + '\n')
+    } else if (input.startsWith('@') || input.startsWith('ATSIGN')) {
+      // this.log('prepping private message')
+      const newCommand = input.replace(/@/g, 'ATSIGN').split(' ')[0]
+      firstSuccessfulCommand = true
+      const moddedMsg = new Message({username, command: newCommand, contents})
+      server.write(moddedMsg.toJSON() + '\n')
     } else {
-
-      if (firstSuccessfulCommand === false) this.log("Please choose a valid command")
+      if (firstSuccessfulCommand === false) this.log('Please choose a valid command')
       server.write(new Message({ username, command, contents }).toJSON() + '\n')
-      //callback()
     }
     callback()
   })

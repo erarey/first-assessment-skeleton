@@ -22,14 +22,6 @@ public class Server implements Runnable {
 
 	private ExecutorService executor;
 
-	private List<ClientHandler> clients = new ArrayList<ClientHandler>();
-
-	private List<ClientHandler> clientsSyncd = null;
-
-	volatile private List<Message> messagesTemp = new ArrayList<>();
-
-	private List<Message> messages = new ArrayList<>();
-
 	boolean open = true;
 
 	private Server thisServer = this;
@@ -38,10 +30,11 @@ public class Server implements Runnable {
 		super();
 		this.port = port;
 		this.executor = executor;
-		clientsSyncd = Collections.synchronizedList(clients);
 	}
 
 	public void run() {
+		//clientsSyncd = Collections.synchronizedList(clients);
+		
 		MessageCenter messageCenter = new MessageCenter(thisServer);
 		
 		executor.execute(messageCenter);
@@ -54,7 +47,6 @@ public class Server implements Runnable {
 				Thread.sleep(500);
 				Socket socket = ss.accept();
 				ClientHandler handler = new ClientHandler(socket, messageCenter);
-				clientsSyncd.add(handler);
 				executor.execute(handler);
 
 			}

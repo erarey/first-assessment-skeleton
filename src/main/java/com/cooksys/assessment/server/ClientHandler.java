@@ -28,7 +28,7 @@ public class ClientHandler implements Runnable {
 
 	private MessageCenter messageCenter = null;
 
-	boolean alive = true;
+	// boolean alive = true;
 
 	boolean prepareToDisconnect = false;
 
@@ -36,7 +36,7 @@ public class ClientHandler implements Runnable {
 
 	Queue<Message> unsentMessages = new ConcurrentLinkedQueue<Message>();
 
-	String thisUsername = "";
+	private String thisUsername = "";
 
 	boolean hasBeenAnnounced = false;
 
@@ -44,15 +44,16 @@ public class ClientHandler implements Runnable {
 		super();
 		this.socket = socket;
 		this.messageCenter = messageCenter;
-		messageCenter.addClientHandler(this);
+
 	}
 
 	public void run() {
 		try {
+
 			Thread.sleep(500);
-			
+
 			String previousCommand = "connect";
-			
+
 			ObjectMapper mapper = new ObjectMapper();
 			BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 			PrintWriter writer = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
@@ -72,14 +73,13 @@ public class ClientHandler implements Runnable {
 				if (reader.ready()) {
 					String raw = reader.readLine();
 					Message message = mapper.readValue(raw, Message.class);
-					
-					System.out.println("Received: " + message.getCommand());
-					if (message.getCommand().equals("lastcommand"))
-					{
-						System.out.println("lastcommand attempt");
-						if (previousCommand.equals("connect") || previousCommand.equals("lastcommand"))
-						{
-							System.out.println("no prev command found");
+
+					// System.out.println("Received: " + message.getCommand());
+
+					if (message.getCommand().equals("lastcommand")) {
+						// System.out.println("lastcommand attempt");
+						if (previousCommand.equals("connect") || previousCommand.equals("lastcommand")) {
+							// System.out.println("no prev command found");
 							log.info("user <{}> did not enter a command", message.getUsername());
 							message.setTimestamp(new Date().toString());
 							message.setContents("Please enter a recognized command");
@@ -89,29 +89,28 @@ public class ClientHandler implements Runnable {
 							writer.write(response);
 							writer.flush();
 							break;
-						}
-						else
-						{
-							System.out.println("attempting to reuse last command " + previousCommand);
+						} else {
+							// System.out.println("attempting to reuse last
+							// command " + previousCommand);
 							String addContents = message.getCommand();
 							message.setContents("" + addContents + " " + message.getContents());
 							message.setCommand(previousCommand);
-							System.out.println("new contents: " + message.getContents());
+							// System.out.println("new contents: " +
+							// message.getContents());
 						}
+						// System.out.println("thisCommand " +
+						// message.getCommand());
+
 					}
-					else
-					{
-						System.out.println("previousCommand " + message.getCommand());
-						
-						
-					}
-					//System.out.println("COMMAND COMING IN:" + message.getCommand());
+
 					switch (message.getCommand()) {
-					
+
 					case "connect":
 						log.info("user <{}> connected", message.getUsername());
 						thisUsername = message.getUsername();
-						//System.out.println(thisUsername);
+
+						messageCenter.addClientHandler(this); // critical
+
 						break;
 					case "disconnect":
 						log.info("user <{}> disconnected", message.getUsername());
@@ -133,46 +132,75 @@ public class ClientHandler implements Runnable {
 						break;
 					case "users":
 						log.info("user <{}> requested the user list");
+						message.setContents("");
 						String response6 = mapper.writeValueAsString(messageCenter.userlistRequest(this));
 						writer.write(response6);
 						writer.flush();
-					
+						break;
 					default:
-						String addContents = message.getCommand();
-						message.setContents("" + addContents + " " + message.getContents());
-						message.setCommand(previousCommand);
-						message.setTimestamp(new Date().toString());
-						synchronized (unsentMessages)
-						{
-							unsentMessages.add(message);
+						if (message.getCommand().startsWith("ATSIGN")) {
+
+							message.setTimestamp(new Date().toString());
+
+							synchronized (unsentMessages) {
+								unsentMessages.add(message);
+							}
+						} else {
+							// user must be trying to use previously used
+							// command,
+							// re-pack what looked like a command as contents
+							// and
+							// tack on the previous used command.
+							String addContents = new String(message.getCommand());
+
+							message.setCommand(previousCommand);
+
+							if (message.getCommand().equals("users")) {
+								log.info("user <{}> rerequested the user list");
+								message.setContents("");
+								String response7 = mapper.writeValueAsString(messageCenter.userlistRequest(this));
+								writer.write(response7);
+								writer.flush();
+							} else {
+								if (message.getCommand().startsWith("ATSIGN"))
+									addContents = ("DUMMY " + addContents);
+								// The above if statement is necessary because
+								// of how disolving the ATSIGN and the format
+								// function interact DUMMY is always clipped
+								// off.
+
+								message.setContents(addContents + " " + message.getContents());
+
+								message.setTimestamp(new Date().toString());
+
+								// System.out.println("repacked command as
+								// content, using prev command " +
+								// previousCommand);
+								synchronized (unsentMessages) {
+									unsentMessages.add(message);
+								}
+							}
 						}
 						break;
 					}
-					
-					previousCommand = message.getCommand();
-					
-					if (message.getCommand().startsWith("ATSIGN")) {
-						System.out.println("a private message was created");
-						message.setTimestamp(new Date().toString());
 
-						synchronized (unsentMessages) {
-							unsentMessages.add(message);
-						}
-					}
+					previousCommand = message.getCommand();
 
 				} else {
 					while (!unsentMessages.isEmpty()) {
 						Message msg = null;
 
-						//System.out.println("processing unsent messages " + unsentMessages.size());
+						// System.out.println("processing unsent messages " +
+						// unsentMessages.size());
 						synchronized (unsentMessages) {
 							msg = unsentMessages.poll();
 						}
 
 						if (msg != null) {
-							if (msg.getCommand().startsWith("ATSIGN")) {
-								System.out.println("passing private message to MessageCenter");
-							}
+							// if (msg.getCommand().startsWith("ATSIGN")) {
+							// System.out.println("passing private message to
+							// MessageCenter");
+							// }
 							messageCenter.passMessageToMessageCenter(msg);
 						}
 					}
@@ -209,76 +237,63 @@ public class ClientHandler implements Runnable {
 		// Integer(unreadMessages.size()).toString()));
 
 		while (!unreadMessages.isEmpty()) {
-			//log.debug("trying to send from within clienthandler");
+
 			String response3;
 			try {
 				Message msg = null;
-				// if (unreadMessages.peek() != null) {
+
 				synchronized (unreadMessages) {
-					//System.out.println("POLLING");
 					msg = unreadMessages.poll();
-					//System.out.println("POLLED");
-					if (msg == null) System.out.println("null!");
+					// if (msg == null)
+					// System.out.println("null!");
 				}
 
 				if (msg != null) {
-					//if (msg.getCommand().startsWith("**")) {
-						//System.out.println("Found an unread private message");
-					//}
-					//System.out.println("COMMAND WAS " + msg.getCommand());
+
 					response3 = mapper.writeValueAsString(formatMessage(msg));
 					writer.write(response3);
 					writer.flush();
 				}
-				// }
+
 			} catch (JsonProcessingException e) {
 				e.printStackTrace();
 			}
 
 		}
 	}
-	
-	Message formatMessage(Message msg)
-	{
+
+	Message formatMessage(Message msg) {
 		String com = msg.getCommand();
-		
-		if (com.equals("broadcast"))
-		{
+
+		if (com.equals("broadcast")) {
 			com = "all";
-		}
-		else if (com.equals("users"))
-		{
-			//this should already be formatted by MessageCenter
-			return msg;
-		}
-		else if (com.equals("echo"))
-		{
+		} else if (com.equals("users")) {
+			// this should already be formatted by MessageCenter
+			return msg; // this shouldn't ever fire, handled by a MessageCenter
+						// method
+		} else if (com.equals("echo")) {
 			com = "echo";
-		}
-		else if (com.startsWith("ATSIGN"))
-		{
+		} else if (com.startsWith("ATSIGN")) {
 			com = "whisper";
-			msg.setCommand("whisper"); //to make it easier to color is Javascript
-		}
-		else if (com.equals("connect") || com.equals("disconnect"))
-		{
-			msg.setContents((msg.getTimestamp() +":" + " <" + msg.getUsername() + ">" + " has " + com + "ed"));
+			msg.setCommand("whisper"); // to make it easier to color is
+										// Javascript
+			msg.setContents(msg.getContents().substring(msg.getContents().indexOf(" ") + 1));
+		} else if (com.equals("connect") || com.equals("disconnect")) {
+			msg.setContents((msg.getTimestamp() + ":" + " <" + msg.getUsername() + ">" + " has " + com + "ed"));
 			return msg;
-		}
-		else
-		{
-			msg.setContents("A known command is required. Type disconnect to leave.");
+		} else {
+			msg.setContents("You must first type a known command.");
 			return msg;
-			
+
 		}
-		
-		if (com.equals("whisper")) msg.setContents(msg.getContents().substring(msg.getContents().indexOf(" ")+1));
-		
-		msg.setContents((msg.getTimestamp() + " <" + msg.getUsername() + "> " 
-				+ "(" + com +"):" + msg.getContents()));
-		
-		 
+
+		msg.setContents((msg.getTimestamp() + " <" + msg.getUsername() + "> " + "(" + com + "):" + msg.getContents()));
+
 		return msg;
-		
+
+	}
+
+	String getUsername() {
+		return thisUsername;
 	}
 }
